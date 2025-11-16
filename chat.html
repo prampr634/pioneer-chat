@@ -21,6 +21,7 @@
         flex-direction: column;
         padding: 10px;
         box-sizing: border-box;
+        position: relative;
     }
     #sidebar h2 {
         margin: 0 0 10px 0;
@@ -117,9 +118,6 @@
         display: none;
         flex-direction: column;
     }
-    #inviteBox input, #inviteBox button {
-        margin-top: 5px;
-    }
 
     /* People list */
     #peopleList {
@@ -130,6 +128,22 @@
     .person {
         padding: 4px;
         border-bottom: 1px solid #bdc3c7;
+        cursor: pointer;
+    }
+    .person:hover {
+        background-color: #d0e9d0;
+    }
+
+    /* Inbox */
+    #inbox {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        width: 200px;
+        background-color: #ecf0f1;
+        padding: 10px;
+        border: 1px solid #bdc3c7;
+        border-radius: 4px;
     }
 
     /* School logo placeholder */
@@ -162,19 +176,19 @@
         <div id="inviteBox">
             <strong>Invite People:</strong>
             <div id="peopleList"></div>
-            <input type="text" id="inviteInput" placeholder="Enter name">
-            <button id="addInviteBtn">Add</button>
         </div>
         <div id="schoolLogo">Pioneer Middle School - Plymouth, MI</div>
     </div>
 
 <script>
 // ========================
-// DATA
+// USER & DATA
 // ========================
-let groups = {}; // groupName -> messages array
-let peopleOnNetwork = []; // all people in network
+let myName = prompt("Enter your name:");
+let groups = {};
+let peopleOnNetwork = [];
 let selectedGroup = null;
+let invites = [];
 
 // ========================
 // DOM ELEMENTS
@@ -184,10 +198,16 @@ const chatMessagesDiv = document.getElementById('chatMessages');
 const chatTitle = document.getElementById('chatTitle');
 const inviteBox = document.getElementById('inviteBox');
 const peopleListDiv = document.getElementById('peopleList');
-const inviteInput = document.getElementById('inviteInput');
+
+// Inbox container
+const inboxDiv = document.createElement('div');
+inboxDiv.id = 'inbox';
+inboxDiv.innerHTML = '<strong>Inbox:</strong><div id="inviteList"></div>';
+document.body.appendChild(inboxDiv);
+const inviteListDiv = document.getElementById('inviteList');
 
 // ========================
-// UTILITY FUNCTIONS
+// FUNCTIONS
 // ========================
 function updateGroupList() {
     groupListDiv.innerHTML = '';
@@ -220,9 +240,6 @@ function updateChatMessages() {
     chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
 }
 
-// ========================
-// SEND MESSAGE
-// ========================
 function sendMessage() {
     const input = document.getElementById('messageInput');
     const text = input.value.trim();
@@ -235,14 +252,70 @@ function sendMessage() {
     input.value = '';
     updateChatMessages();
 }
+
+// Show only network people in invite list
+function updatePeopleList() {
+    peopleListDiv.innerHTML = '';
+    peopleOnNetwork.forEach(person => {
+        if (person === myName) return; // don't invite yourself
+        const div = document.createElement('div');
+        div.className = 'person';
+        div.textContent = person;
+        div.onclick = () => sendInvite(person);
+        peopleListDiv.appendChild(div);
+    });
+}
+
+function sendInvite(name) {
+    if (!selectedGroup) {
+        alert("Select a group first!");
+        return;
+    }
+    // Only show invite if it's for you
+    if (name === myName) {
+        invites.push({ group: selectedGroup, from: 'Someone' });
+        updateInbox();
+    } else {
+        alert(`${name} would get an invite! (simulated)`);
+    }
+}
+
+// Inbox display
+function updateInbox() {
+    inviteListDiv.innerHTML = '';
+    invites.forEach((inv, index) => {
+        const div = document.createElement('div');
+        div.style.borderBottom = '1px solid #bdc3c7';
+        div.style.padding = '5px';
+        div.innerHTML = `
+            <strong>${inv.from}</strong> invited you to <em>${inv.group}</em><br>
+            <button id="acceptBtn${index}">Accept</button>
+            <button id="declineBtn${index}">Decline</button>
+        `;
+        inviteListDiv.appendChild(div);
+
+        document.getElementById(`acceptBtn${index}`).onclick = () => {
+            if (!groups[inv.group]) groups[inv.group] = [];
+            selectGroup(inv.group);
+            invites.splice(index, 1);
+            updateInbox();
+        };
+
+        document.getElementById(`declineBtn${index}`).onclick = () => {
+            invites.splice(index, 1);
+            updateInbox();
+        };
+    });
+}
+
+// ========================
+// EVENT LISTENERS
+// ========================
 document.getElementById('sendButton').addEventListener('click', sendMessage);
 document.getElementById('messageInput').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendMessage();
 });
 
-// ========================
-// CREATE GROUP
-// ========================
 document.getElementById('createGroupBtn').addEventListener('click', () => {
     const groupName = prompt('Enter new group name:');
     if (!groupName) return;
@@ -251,13 +324,10 @@ document.getElementById('createGroupBtn').addEventListener('click', () => {
         return;
     }
     groups[groupName] = [];
-    peopleOnNetwork.push('You'); // always include yourself
+    if (!peopleOnNetwork.includes(myName)) peopleOnNetwork.push(myName);
     selectGroup(groupName);
 });
 
-// ========================
-// INVITE PEOPLE
-// ========================
 document.getElementById('inviteBtn').addEventListener('click', () => {
     if (!selectedGroup) {
         alert('Select a group first!');
@@ -267,30 +337,12 @@ document.getElementById('inviteBtn').addEventListener('click', () => {
     updatePeopleList();
 });
 
-function updatePeopleList() {
-    peopleListDiv.innerHTML = '';
-    peopleOnNetwork.forEach(person => {
-        const div = document.createElement('div');
-        div.className = 'person';
-        div.textContent = person;
-        peopleListDiv.appendChild(div);
-    });
-}
-
-document.getElementById('addInviteBtn').addEventListener('click', () => {
-    const name = inviteInput.value.trim();
-    if (!name) return;
-    if (!peopleOnNetwork.includes(name)) {
-        peopleOnNetwork.push(name);
-    }
-    inviteInput.value = '';
-    updatePeopleList();
-});
-
 // ========================
 // INITIALIZE
 // ========================
 updateGroupList();
+if (!peopleOnNetwork.includes(myName)) peopleOnNetwork.push(myName);
+
 </script>
 </body>
 </html>
