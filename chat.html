@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pioneer Middle School Chat</title>
+<style>
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        display: flex;
+        height: 100vh;
+        background-color: #f5f5f5;
+    }
+    /* Sidebar */
+    #sidebar {
+        width: 250px;
+        background-color: #2ecc71; /* green */
+        color: black;
+        display: flex;
+        flex-direction: column;
+        padding: 10px;
+        box-sizing: border-box;
+    }
+    #sidebar h2 {
+        margin: 0 0 10px 0;
+        font-size: 18px;
+        text-align: center;
+    }
+    .group {
+        padding: 8px;
+        margin-bottom: 5px;
+        cursor: pointer;
+        border-radius: 4px;
+    }
+    .group.selected {
+        background-color: #27ae60;
+        color: white;
+        font-weight: bold;
+    }
+    #createGroupBtn {
+        margin-top: 10px;
+        padding: 8px;
+        background-color: black;
+        color: white;
+        border: none;
+        cursor: pointer;
+        border-radius: 4px;
+    }
+
+    /* Main chat area */
+    #mainChat {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+    #chatHeader {
+        background-color: #34495e;
+        color: white;
+        padding: 10px;
+        font-size: 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    #chatMessages {
+        flex: 1;
+        padding: 10px;
+        overflow-y: auto;
+        background-color: white;
+    }
+    .message {
+        margin-bottom: 5px;
+        padding: 5px 10px;
+        background-color: #ecf0f1;
+        border-radius: 5px;
+        max-width: 70%;
+        word-wrap: break-word;
+    }
+    .message.you {
+        background-color: #3498db;
+        color: white;
+        align-self: flex-end;
+    }
+
+    #messageInputContainer {
+        display: flex;
+        padding: 10px;
+        background-color: #ecf0f1;
+    }
+    #messageInput {
+        flex: 1;
+        padding: 8px;
+        font-size: 16px;
+    }
+    #sendButton {
+        padding: 8px 12px;
+        margin-left: 5px;
+        background-color: #2c3e50;
+        color: white;
+        border: none;
+        cursor: pointer;
+        border-radius: 4px;
+    }
+
+    /* Invite box */
+    #inviteBox {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background-color: #ecf0f1;
+        padding: 10px;
+        border: 1px solid #bdc3c7;
+        border-radius: 4px;
+        width: 200px;
+        display: none;
+        flex-direction: column;
+    }
+    #inviteBox input, #inviteBox button {
+        margin-top: 5px;
+    }
+
+    /* People list */
+    #peopleList {
+        margin-top: 10px;
+        max-height: 150px;
+        overflow-y: auto;
+    }
+    .person {
+        padding: 4px;
+        border-bottom: 1px solid #bdc3c7;
+    }
+
+    /* School logo placeholder */
+    #schoolLogo {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        font-size: 14px;
+        color: #2c3e50;
+    }
+
+</style>
+</head>
+<body>
+    <div id="sidebar">
+        <h2>Groups</h2>
+        <div id="groupList"></div>
+        <button id="createGroupBtn">+ Create Group</button>
+    </div>
+    <div id="mainChat">
+        <div id="chatHeader">
+            <span id="chatTitle">Select a group</span>
+            <button id="inviteBtn">Invite</button>
+        </div>
+        <div id="chatMessages"></div>
+        <div id="messageInputContainer">
+            <input type="text" id="messageInput" placeholder="Type a message...">
+            <button id="sendButton">Send</button>
+        </div>
+        <div id="inviteBox">
+            <strong>Invite People:</strong>
+            <div id="peopleList"></div>
+            <input type="text" id="inviteInput" placeholder="Enter name">
+            <button id="addInviteBtn">Add</button>
+        </div>
+        <div id="schoolLogo">Pioneer Middle School - Plymouth, MI</div>
+    </div>
+
+<script>
+// ========================
+// DATA
+// ========================
+let groups = {}; // groupName -> messages array
+let peopleOnNetwork = []; // all people in network
+let selectedGroup = null;
+
+// ========================
+// DOM ELEMENTS
+// ========================
+const groupListDiv = document.getElementById('groupList');
+const chatMessagesDiv = document.getElementById('chatMessages');
+const chatTitle = document.getElementById('chatTitle');
+const inviteBox = document.getElementById('inviteBox');
+const peopleListDiv = document.getElementById('peopleList');
+const inviteInput = document.getElementById('inviteInput');
+
+// ========================
+// UTILITY FUNCTIONS
+// ========================
+function updateGroupList() {
+    groupListDiv.innerHTML = '';
+    for (const groupName in groups) {
+        const div = document.createElement('div');
+        div.className = 'group' + (groupName === selectedGroup ? ' selected' : '');
+        div.textContent = groupName;
+        div.onclick = () => selectGroup(groupName);
+        groupListDiv.appendChild(div);
+    }
+}
+
+function selectGroup(groupName) {
+    selectedGroup = groupName;
+    chatTitle.textContent = groupName;
+    inviteBox.style.display = 'none';
+    updateGroupList();
+    updateChatMessages();
+}
+
+function updateChatMessages() {
+    chatMessagesDiv.innerHTML = '';
+    if (!selectedGroup) return;
+    groups[selectedGroup].forEach(msg => {
+        const div = document.createElement('div');
+        div.className = 'message' + (msg.sender === 'You' ? ' you' : '');
+        div.textContent = msg.sender + ': ' + msg.text;
+        chatMessagesDiv.appendChild(div);
+    });
+    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+}
+
+// ========================
+// SEND MESSAGE
+// ========================
+function sendMessage() {
+    const input = document.getElementById('messageInput');
+    const text = input.value.trim();
+    if (!text) return;
+    if (!selectedGroup) {
+        alert('Select a group first!');
+        return;
+    }
+    groups[selectedGroup].push({ sender: 'You', text });
+    input.value = '';
+    updateChatMessages();
+}
+document.getElementById('sendButton').addEventListener('click', sendMessage);
+document.getElementById('messageInput').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendMessage();
+});
+
+// ========================
+// CREATE GROUP
+// ========================
+document.getElementById('createGroupBtn').addEventListener('click', () => {
+    const groupName = prompt('Enter new group name:');
+    if (!groupName) return;
+    if (groups[groupName]) {
+        alert('Group already exists!');
+        return;
+    }
+    groups[groupName] = [];
+    peopleOnNetwork.push('You'); // always include yourself
+    selectGroup(groupName);
+});
+
+// ========================
+// INVITE PEOPLE
+// ========================
+document.getElementById('inviteBtn').addEventListener('click', () => {
+    if (!selectedGroup) {
+        alert('Select a group first!');
+        return;
+    }
+    inviteBox.style.display = inviteBox.style.display === 'flex' ? 'none' : 'flex';
+    updatePeopleList();
+});
+
+function updatePeopleList() {
+    peopleListDiv.innerHTML = '';
+    peopleOnNetwork.forEach(person => {
+        const div = document.createElement('div');
+        div.className = 'person';
+        div.textContent = person;
+        peopleListDiv.appendChild(div);
+    });
+}
+
+document.getElementById('addInviteBtn').addEventListener('click', () => {
+    const name = inviteInput.value.trim();
+    if (!name) return;
+    if (!peopleOnNetwork.includes(name)) {
+        peopleOnNetwork.push(name);
+    }
+    inviteInput.value = '';
+    updatePeopleList();
+});
+
+// ========================
+// INITIALIZE
+// ========================
+updateGroupList();
+</script>
+</body>
+</html>
